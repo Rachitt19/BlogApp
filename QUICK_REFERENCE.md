@@ -1,6 +1,14 @@
-# 🎯 Quick Reference Card
+# 🎯 Quick Reference - UPDATED WITH NEW FEATURES
 
 Print this or keep it handy while developing!
+
+## ⚡ WHAT'S NEW (Version 2.0)
+
+✅ **Timeout Fixed** - Posts now save in 30s (was timing out at 10s)  
+✅ **7+ Pages** - Communities, liked posts, user profiles  
+✅ **Communities** - Full Reddit-style community system  
+✅ **Liked Posts** - Track and view all posts you've liked  
+✅ **Test Data** - Seeded database with sample data
 
 ## 🚀 Start Commands
 

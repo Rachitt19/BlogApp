@@ -23,6 +23,11 @@ const postSchema = new mongoose.Schema({
     type: String,
     default: 'General'
   },
+  community: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Community',
+    default: null
+  },
   tags: [{
     type: String
   }],
@@ -35,6 +40,10 @@ const postSchema = new mongoose.Schema({
     default: 0
   },
   likes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  likedBy: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],

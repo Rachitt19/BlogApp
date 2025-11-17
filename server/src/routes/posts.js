@@ -8,6 +8,10 @@ const router = express.Router();
 router.get('/', postController.getAllPosts);
 router.get('/:id', postController.getPost);
 
+// User posts routes - must come before /:id to avoid confusion
+router.get('/users/:userId/posts', postController.getUserPosts);
+router.get('/users/:userId/liked-posts', postController.getLikedPosts);
+
 // Protected routes
 router.post('/', authMiddleware, postController.createPost);
 router.put('/:id', authMiddleware, postController.updatePost);

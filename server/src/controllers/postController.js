@@ -331,3 +331,73 @@ exports.deleteComment = async (req, res) => {
     });
   }
 };
+
+// Get all posts by a specific user
+exports.getUserPosts = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (page - 1) * limit;
+
+    const posts = await Post.find({ author: userId })
+      .populate('author', 'displayName email photoURL')
+      .populate('comments.author', 'displayName photoURL')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Post.countDocuments({ author: userId });
+
+    res.json({
+      success: true,
+      posts,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+};
+
+// Get all posts liked by a specific user
+exports.getLikedPosts = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (page - 1) * limit;
+
+    const posts = await Post.find({ likes: userId })
+      .populate('author', 'displayName email photoURL')
+      .populate('comments.author', 'displayName photoURL')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Post.countDocuments({ likes: userId });
+
+    res.json({
+      success: true,
+      posts,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+};
