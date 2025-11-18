@@ -15,9 +15,13 @@ const corsOptions = {
     // Allowed origins for development and production
     const allowedOrigins = [
       'http://localhost:3000',
+      'http://localhost:3001',
       'http://localhost:7777',
+      'http://localhost:8888',
       'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
       'http://127.0.0.1:7777',
+      'http://127.0.0.1:8888',
       process.env.CLIENT_URL,
       process.env.PRODUCTION_URL || ''
     ].filter(url => url !== ''); // Remove empty strings
@@ -92,7 +96,7 @@ const connectDB = async () => {
 };
 
 // Start server
-const PORT = process.env.PORT || 7777;
+const PORT = process.env.PORT || 8888;
 
 const startServer = async () => {
   await connectDB();

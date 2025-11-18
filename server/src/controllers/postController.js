@@ -49,30 +49,98 @@ exports.createPost = async (req, res) => {
 // Get all posts
 exports.getAllPosts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, category, search } = req.query;
+    const { page = 1, limit = 10, category, search, sort = '-createdAt' } = req.query;
 
-    let query = {};
+    let matchStage = {};
 
     if (category && category !== 'All') {
-      query.category = category;
+      matchStage.category = category;
     }
 
     if (search) {
-      query.$or = [
+      matchStage.$or = [
         { title: { $regex: search, $options: 'i' } },
         { content: { $regex: search, $options: 'i' } }
       ];
     }
 
-    const skip = (page - 1) * limit;
+    // Parse sort parameter and build aggregation pipeline
+    let sortObj = { createdAt: -1 }; // default
+    if (sort) {
+      if (sort === '-likes' || sort === 'likes') {
+        // For likes, we need to sort by array length
+        sortObj = sort === '-likes' 
+          ? { likeCount: -1 } // Most liked first
+          : { likeCount: 1 };  // Least liked first
+      } else if (sort === '-views' || sort === 'views') {
+        sortObj = sort === '-views'
+          ? { views: -1 }  // Most viewed first
+          : { views: 1 };  // Least viewed first
+      } else if (sort === '-createdAt' || sort === 'createdAt') {
+        sortObj = sort === '-createdAt'
+          ? { createdAt: -1 }  // Newest first
+          : { createdAt: 1 };  // Oldest first
+      }
+    }
 
-    const posts = await Post.find(query)
-      .populate('author', 'displayName email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    const skip = (page - 1) * parseInt(limit);
 
-    const total = await Post.countDocuments(query);
+    // Use aggregation pipeline to properly handle array size sorting
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $addFields: {
+          likeCount: { $size: '$likes' }
+        }
+      },
+      { $sort: sortObj },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'author'
+        }
+      },
+      {
+        $unwind: {
+          path: '$author',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          title: 1,
+          content: 1,
+          category: 1,
+          authorName: 1,
+          tags: 1,
+          image: 1,
+          views: 1,
+          likes: 1,
+          comments: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          author: {
+            _id: '$author._id',
+            displayName: '$author.displayName',
+            email: '$author.email'
+          }
+        }
+      }
+    ];
+
+    const posts = await Post.aggregate(pipeline);
+    
+    // Get total count for pagination
+    const countPipeline = [
+      { $match: matchStage },
+      { $count: 'total' }
+    ];
+    const countResult = await Post.aggregate(countPipeline);
+    const total = countResult.length > 0 ? countResult[0].total : 0;
 
     res.json({
       success: true,
@@ -81,7 +149,7 @@ exports.getAllPosts = async (req, res) => {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / parseInt(limit))
       }
     });
   } catch (error) {
