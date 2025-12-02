@@ -89,3 +89,57 @@ exports.createChat = async (req, res) => {
         });
     }
 };
+// Get unread message count
+exports.getUnreadCount = async (req, res) => {
+    try {
+        // Find all chats where user is a participant
+        const chats = await Chat.find({ participants: req.userId });
+        const chatIds = chats.map(chat => chat._id);
+
+        // Count messages in these chats where:
+        // 1. Sender is NOT the current user
+        // 2. Current user is NOT in readBy array
+        const unreadCount = await Message.countDocuments({
+            chat: { $in: chatIds },
+            sender: { $ne: req.userId },
+            readBy: { $ne: req.userId }
+        });
+
+        res.json({
+            success: true,
+            count: unreadCount
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Server error'
+        });
+    }
+};
+
+// Mark messages in a chat as read
+exports.markMessagesRead = async (req, res) => {
+    try {
+        const { chatId } = req.params;
+
+        await Message.updateMany(
+            {
+                chat: chatId,
+                sender: { $ne: req.userId },
+                readBy: { $ne: req.userId }
+            },
+            {
+                $addToSet: { readBy: req.userId }
+            }
+        );
+
+        res.json({
+            success: true
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Server error'
+        });
+    }
+};

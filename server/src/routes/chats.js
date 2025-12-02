@@ -6,7 +6,10 @@ const chatController = require('../controllers/chatController');
 router.use(authMiddleware);
 
 router.get('/', chatController.getChats);
-router.get('/:chatId/messages', chatController.getMessages);
-router.post('/', chatController.createChat);
+router.get('/unread', authMiddleware, chatController.getUnreadCount);
+router.get('/:chatId/messages', authMiddleware, chatController.getMessages);
+router.put('/:chatId/read', authMiddleware, chatController.markMessagesRead);
+router.post('/', authMiddleware, chatController.createChat);
 
 module.exports = router;
+
