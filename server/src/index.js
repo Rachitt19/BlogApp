@@ -60,6 +60,13 @@ app.options('*', cors(corsOptions));
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads'));
+
+// Attach io to req
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -69,6 +76,7 @@ app.use('/api/communities', communityRoutes);
 app.use('/api/follows', followRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/forums', forumRoutes);
+app.use('/api/upload', require('./routes/upload'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -12,6 +12,22 @@ const chatSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
+    },
+    isGroup: {
+        type: Boolean,
+        default: false
+    },
+    groupName: {
+        type: String,
+        trim: true
+    },
+    groupAdmin: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    groupImage: {
+        type: String,
+        default: ''
     }
 });
 
