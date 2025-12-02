@@ -7,6 +7,7 @@ exports.getChats = async (req, res) => {
     try {
         const chats = await Chat.find({ participants: req.userId })
             .populate('participants', 'displayName photoURL')
+            .populate('groupAdmin', 'displayName photoURL')
             .populate({
                 path: 'lastMessage',
                 populate: { path: 'sender', select: 'displayName' }
@@ -61,7 +62,8 @@ exports.createChat = async (req, res) => {
         // Check if chat already exists
         const existingChat = await Chat.findOne({
             participants: { $all: [req.userId, userId] }
-        }).populate('participants', 'displayName photoURL');
+        }).populate('participants', 'displayName photoURL')
+            .populate('groupAdmin', 'displayName photoURL');
 
         if (existingChat) {
             return res.json({
@@ -76,7 +78,9 @@ exports.createChat = async (req, res) => {
         });
 
         await chat.save();
+        await chat.save();
         await chat.populate('participants', 'displayName photoURL');
+        await chat.populate('groupAdmin', 'displayName photoURL');
 
         res.status(201).json({
             success: true,
