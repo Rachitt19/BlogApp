@@ -1,11 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
 const communityRoutes = require('./routes/communities');
+const followRoutes = require('./routes/follows');
+const chatRoutes = require('./routes/chats');
+const forumRoutes = require('./routes/forums');
 
 const app = express();
 
@@ -61,6 +66,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/blogs', postRoutes); // Alias for posts endpoint
 app.use('/api/communities', communityRoutes);
+app.use('/api/follows', followRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/forums', forumRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -95,12 +103,19 @@ const connectDB = async () => {
   }
 };
 
+// Create HTTP server and Socket.io instance
+const server = http.createServer(app);
+const io = new Server(server, { cors: corsOptions });
+
+// Initialize socket handler
+require('./socket/socketHandler')(io);
+
 // Start server
 const PORT = process.env.PORT || 8888;
 
 const startServer = async () => {
   await connectDB();
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 };

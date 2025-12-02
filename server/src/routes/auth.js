@@ -10,6 +10,8 @@ router.post('/signin', authController.signin);
 
 // Protected routes
 router.get('/me', authMiddleware, authController.getCurrentUser);
+router.get('/search', authController.searchUsers);
+router.get('/users/:id', authController.getUserById);
 router.put('/profile', authMiddleware, authController.updateProfile);
 
 module.exports = router;

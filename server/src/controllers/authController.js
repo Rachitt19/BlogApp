@@ -170,3 +170,59 @@ exports.updateProfile = async (req, res) => {
     });
   }
 };
+
+// Get user by ID
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+};
+
+// Search users
+exports.searchUsers = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) {
+      return res.json({ success: true, users: [] });
+    }
+
+    const users = await User.find({
+      $or: [
+        { displayName: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } }
+      ]
+    }).select('displayName photoURL email createdAt');
+
+    res.json({
+      success: true,
+      users
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
+  }
+};
