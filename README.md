@@ -1,4 +1,4 @@
-# 📚 BlogApp - Full Stack Blogging & Community Platform
+# 📚 BlogApp - Final Proposal
 
 A modern, full-stack application combining blogging, real-time chat, and community forums. Built with Next.js, Express.js, MongoDB, and Socket.io.
 
