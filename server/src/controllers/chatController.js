@@ -208,13 +208,15 @@ exports.updateGroup = async (req, res) => {
     try {
         const { chatId } = req.params;
         const { groupName, groupImage } = req.body;
+        console.log('Update Group Request:', { chatId, groupName, groupImage });
+
+        const updateData = {};
+        if (groupName) updateData.groupName = groupName;
+        if (groupImage !== undefined) updateData.groupImage = groupImage;
 
         const updatedChat = await Chat.findByIdAndUpdate(
             chatId,
-            {
-                groupName,
-                groupImage
-            },
+            updateData,
             { new: true }
         )
             .populate('participants', 'displayName photoURL')
