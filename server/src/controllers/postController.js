@@ -7,18 +7,12 @@ exports.createPost = async (req, res) => {
     const { title, content, category, tags, image } = req.body;
 
     if (!title || !content) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title and content are required'
-      });
+      return res.status(400).json({ success: false, message: 'Title and content are required' });
     }
 
     const user = await User.findById(req.userId);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const post = new Post({
@@ -33,16 +27,9 @@ exports.createPost = async (req, res) => {
 
     await post.save();
 
-    res.status(201).json({
-      success: true,
-      message: 'Post created successfully',
-      post
-    });
+    res.status(201).json({ success: true, message: 'Post created successfully', post });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -64,38 +51,19 @@ exports.getAllPosts = async (req, res) => {
       ];
     }
 
-    // Parse sort parameter and build aggregation pipeline
-    let sortObj = { createdAt: -1 }; // default
-    if (sort) {
-      if (sort === '-likes' || sort === 'likes') {
-        // For likes, we need to sort by array length
-        sortObj = sort === '-likes' 
-          ? { likeCount: -1 } // Most liked first
-          : { likeCount: 1 };  // Least liked first
-      } else if (sort === '-views' || sort === 'views') {
-        sortObj = sort === '-views'
-          ? { views: -1 }  // Most viewed first
-          : { views: 1 };  // Least viewed first
-      } else if (sort === '-createdAt' || sort === 'createdAt') {
-        sortObj = sort === '-createdAt'
-          ? { createdAt: -1 }  // Newest first
-          : { createdAt: 1 };  // Oldest first
-      }
-    }
+    let sortObj = { createdAt: -1 };
+    if (sort === 'createdAt') sortObj = { createdAt: 1 };
+    if (sort === '-likes') sortObj = { likeCount: -1 };
+    if (sort === 'likes') sortObj = { likeCount: 1 };
 
-    const skip = (page - 1) * parseInt(limit);
+    const skip = (Number(page) - 1) * Number(limit);
 
-    // Use aggregation pipeline to properly handle array size sorting
     const pipeline = [
       { $match: matchStage },
-      {
-        $addFields: {
-          likeCount: { $size: '$likes' }
-        }
-      },
+      { $addFields: { likeCount: { $size: '$likes' } } },
       { $sort: sortObj },
       { $skip: skip },
-      { $limit: parseInt(limit) },
+      { $limit: Number(limit) },
       {
         $lookup: {
           from: 'users',
@@ -104,316 +72,173 @@ exports.getAllPosts = async (req, res) => {
           as: 'author'
         }
       },
-      {
-        $unwind: {
-          path: '$author',
-          preserveNullAndEmptyArrays: true
-        }
-      },
-      {
-        $project: {
-          title: 1,
-          content: 1,
-          category: 1,
-          authorName: 1,
-          tags: 1,
-          image: 1,
-          views: 1,
-          likes: 1,
-          comments: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          author: {
-            _id: '$author._id',
-            displayName: '$author.displayName',
-            email: '$author.email'
-          }
-        }
-      }
+      { $unwind: { path: '$author', preserveNullAndEmptyArrays: true } }
     ];
 
     const posts = await Post.aggregate(pipeline);
-    
-    // Get total count for pagination
-    const countPipeline = [
-      { $match: matchStage },
-      { $count: 'total' }
-    ];
-    const countResult = await Post.aggregate(countPipeline);
-    const total = countResult.length > 0 ? countResult[0].total : 0;
+
+    const total = await Post.countDocuments(matchStage);
 
     res.json({
       success: true,
       posts,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit))
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit))
       }
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // Get single post
 exports.getPost = async (req, res) => {
   try {
-    const { id } = req.params;
-
     const post = await Post.findByIdAndUpdate(
-      id,
+      req.params.id,
       { $inc: { views: 1 } },
       { new: true }
     )
       .populate('author', 'displayName email photoURL')
       .populate('comments.author', 'displayName photoURL');
 
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
 
-    res.json({
-      success: true,
-      post
-    });
+    res.json({ success: true, post });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // Update post
 exports.updatePost = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { title, content, category, tags, image } = req.body;
+    const post = await Post.findById(req.params.id);
 
-    const post = await Post.findById(id);
-
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
 
     if (post.author.toString() !== req.userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to update this post'
-      });
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    if (title) post.title = title;
-    if (content) post.content = content;
-    if (category) post.category = category;
-    if (tags) post.tags = tags;
-    if (image) post.image = image;
-    post.updatedAt = Date.now();
+    Object.assign(post, req.body, { updatedAt: Date.now() });
 
     await post.save();
 
-    res.json({
-      success: true,
-      message: 'Post updated successfully',
-      post
-    });
+    res.json({ success: true, message: 'Post updated', post });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // Delete post
 exports.deletePost = async (req, res) => {
   try {
-    const { id } = req.params;
+    const post = await Post.findById(req.params.id);
 
-    const post = await Post.findById(id);
-
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
 
     if (post.author.toString() !== req.userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to delete this post'
-      });
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    await Post.findByIdAndDelete(id);
+    await Post.findByIdAndDelete(req.params.id);
 
-    res.json({
-      success: true,
-      message: 'Post deleted successfully'
-    });
+    res.json({ success: true, message: 'Post deleted' });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Like/Unlike post
+// Like/Unlike
 exports.likePost = async (req, res) => {
   try {
-    const { id } = req.params;
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
 
-    const post = await Post.findById(id);
+    const idx = post.likes.indexOf(req.userId);
 
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
-
-    const likeIndex = post.likes.indexOf(req.userId);
-
-    if (likeIndex > -1) {
-      post.likes.splice(likeIndex, 1);
-    } else {
-      post.likes.push(req.userId);
-    }
+    if (idx > -1) post.likes.splice(idx, 1);
+    else post.likes.push(req.userId);
 
     await post.save();
 
     res.json({
       success: true,
-      message: likeIndex > -1 ? 'Post unliked' : 'Post liked',
+      message: idx > -1 ? 'Post unliked' : 'Post liked',
       post
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // Add comment
 exports.addComment = async (req, res) => {
   try {
-    const { id } = req.params;
     const { content } = req.body;
 
     if (!content) {
-      return res.status(400).json({
-        success: false,
-        message: 'Comment content is required'
-      });
+      return res.status(400).json({ success: false, message: 'Comment content required' });
     }
 
-    const post = await Post.findById(id);
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
 
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
-
-    const user = await User.findById(req.userId);
-
-    const comment = {
+    post.comments.push({
       author: req.userId,
-      authorName: user.displayName,
-      content
-    };
+      content,
+      authorName: (await User.findById(req.userId)).displayName
+    });
 
-    post.comments.push(comment);
     await post.save();
 
-    res.status(201).json({
-      success: true,
-      message: 'Comment added successfully',
-      post
-    });
+    res.status(201).json({ success: true, message: 'Comment added', post });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // Delete comment
 exports.deleteComment = async (req, res) => {
   try {
-    const { postId, commentId } = req.params;
+    const post = await Post.findById(req.params.postId);
 
-    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
 
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
+    const commentIndex = post.comments.findIndex(c => c._id.toString() === req.params.commentId);
 
-    const commentIndex = post.comments.findIndex(c => c._id.toString() === commentId);
+    if (commentIndex === -1)
+      return res.status(404).json({ success: false, message: 'Comment not found' });
 
-    if (commentIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        message: 'Comment not found'
-      });
-    }
-
-    if (post.comments[commentIndex].author.toString() !== req.userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to delete this comment'
-      });
-    }
+    if (post.comments[commentIndex].author.toString() !== req.userId)
+      return res.status(403).json({ success: false, message: 'Not authorized' });
 
     post.comments.splice(commentIndex, 1);
     await post.save();
 
-    res.json({
-      success: true,
-      message: 'Comment deleted successfully',
-      post
-    });
+    res.json({ success: true, message: 'Comment deleted', post });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get all posts by a specific user
+// USER POSTS (fixed skip)
 exports.getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
-    const skip = (page - 1) * limit;
+    const skip = (Number(page) - 1) * Number(limit);
 
     const posts = await Post.find({ author: userId })
       .populate('author', 'displayName email photoURL')
-      .populate('comments.author', 'displayName photoURL')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(Number(limit));
 
     const total = await Post.countDocuments({ author: userId });
 
@@ -422,33 +247,29 @@ exports.getUserPosts = async (req, res) => {
       posts,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit))
       }
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get all posts liked by a specific user
+// LIKED POSTS (fixed skip)
 exports.getLikedPosts = async (req, res) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
-    const skip = (page - 1) * limit;
+    const skip = (Number(page) - 1) * Number(limit);
 
     const posts = await Post.find({ likes: userId })
       .populate('author', 'displayName email photoURL')
-      .populate('comments.author', 'displayName photoURL')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(Number(limit));
 
     const total = await Post.countDocuments({ likes: userId });
 
@@ -457,15 +278,12 @@ exports.getLikedPosts = async (req, res) => {
       posts,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / Number(limit))
       }
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };

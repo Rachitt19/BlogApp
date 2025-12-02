@@ -4,15 +4,15 @@ const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
-// Public routes
-router.get('/', postController.getAllPosts);
-router.get('/:id', postController.getPost);
-
-// User posts routes - must come before /:id to avoid confusion
+/* USER ROUTES — must be FIRST */
 router.get('/users/:userId/posts', postController.getUserPosts);
 router.get('/users/:userId/liked-posts', postController.getLikedPosts);
 
-// Protected routes
+/* PUBLIC ROUTES */
+router.get('/', postController.getAllPosts);
+router.get('/:id', postController.getPost);
+
+/* AUTH ROUTES */
 router.post('/', authMiddleware, postController.createPost);
 router.put('/:id', authMiddleware, postController.updatePost);
 router.delete('/:id', authMiddleware, postController.deletePost);
